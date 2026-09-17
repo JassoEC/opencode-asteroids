@@ -370,7 +370,6 @@ class Ship {
     this.vx     = 0;
     this.vy     = 0;
     this.radius = 12;
-<<<<<<< HEAD
     this.thrusting        = false;
     this.invincible       = 3;
     this.shootCooldown    = 0;
@@ -385,193 +384,6 @@ class Ship {
     // Cargar skin guardado o usar 'classic' por defecto
     this.skinKey = localStorage.getItem('asteroids_skin') || 'classic';
     if (!SKINS[this.skinKey]) this.skinKey = 'classic';
-  }
-
-  // Activa el power up: reinicia el cronómetro, no acumula tiempo
-  activatePowerUp(seconds = 5) {
-    this.powerUpTime = seconds;
-  }
-
-  activateShield(seconds = SHIELD_DURATION) {
-    if (this.shieldCooldown <= 0) {
-      this.shieldTime = seconds;
-      this.shieldCooldown = SHIELD_COOLDOWN;
-    }
-  }
-
-  // Activa triple disparo: reinicia el cronómetro, no acumula tiempo
-  activateTripleShot(seconds = 5) {
-    this.tripleShotTime = seconds;
-  }
-
-  update(dt) {
-    if (this.dead) return;
-    if (this.invincible    > 0) this.invincible    -= dt;
-    if (this.shootCooldown > 0) this.shootCooldown -= dt;
-    if (this.powerUpTime   > 0) this.powerUpTime   -= dt;
-    if (this.shieldHitPause > 0) this.shieldHitPause -= dt;
-    else if (this.shieldTime > 0) this.shieldTime    -= dt;
-    if (this.shieldCooldown > 0) this.shieldCooldown -= dt;
-    if (this.shieldBreakAnim > 0) this.shieldBreakAnim -= dt;
-    if (this.tripleShotTime > 0) this.tripleShotTime -= dt;
-
-    const ROT    = 3.5;
-    const THRUST = 260;
-    const DRAG   = 0.987;
-    const boost  = this.powerUpTime > 0 ? 2 : 1;
-
-    if (keys['ArrowLeft'])  this.angle -= ROT * dt;
-    if (keys['ArrowRight']) this.angle += ROT * dt;
-
-    this.thrusting = !!keys['ArrowUp'];
-    if (this.thrusting) {
-      this.vx += Math.cos(this.angle) * THRUST * boost * dt;
-      this.vy += Math.sin(this.angle) * THRUST * boost * dt;
-    }
-
-    this.vx *= DRAG;
-    this.vy *= DRAG;
-    this.x = wrap(this.x + this.vx * dt, W);
-    this.y = wrap(this.y + this.vy * dt, H);
-  }
-
-  tryShoot() {
-    if (this.shootCooldown > 0 || this.dead) return [];
-    this.shootCooldown = 0.2;
-    const NOSE = 21;
-    const ox = this.x + Math.cos(this.angle) * NOSE;
-    const oy = this.y + Math.sin(this.angle) * NOSE;
-
-    if (this.tripleShotTime > 0) {
-      const SPREAD = 0.15; // ~8.6 grados
-      return [
-        new Bullet(ox, oy, this.angle - SPREAD),
-        new Bullet(ox, oy, this.angle),
-        new Bullet(ox, oy, this.angle + SPREAD),
-      ];
-    }
-    return [new Bullet(ox, oy, this.angle)];
-  }
-
-  setSkin(key) {
-    if (SKINS[key]) {
-      this.skinKey = key;
-      localStorage.setItem('asteroids_skin', key);
-      skinChangeMsg = `SKIN: ${SKINS[key].name}`;
-      skinChangeTimer = 2;
-      return true;
-    }
-    return false;
-  }
-
-  nextSkin() {
-    const idx = SKIN_KEYS.indexOf(this.skinKey);
-    const nextIdx = (idx + 1) % SKIN_KEYS.length;
-    this.setSkin(SKIN_KEYS[nextIdx]);
-  }
-
-  prevSkin() {
-    const idx = SKIN_KEYS.indexOf(this.skinKey);
-    const prevIdx = (idx - 1 + SKIN_KEYS.length) % SKIN_KEYS.length;
-    this.setSkin(SKIN_KEYS[prevIdx]);
-  }
-
-  draw() {
-    if (this.dead) return;
-    // Parpadeo durante invencibilidad de reaparición
-    if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
-
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate(this.angle);
-
-    const skin = SKINS[this.skinKey];
-    if (skin && skin.draw) {
-      skin.draw(ctx, this);
-    }
-
-    ctx.restore();
-  }
-
-  drawShield() {
-    // Escudo activo o animación de rotura
-    if (this.shieldTime <= 0 && this.shieldBreakAnim <= 0) return;
-    
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    
-    // Animación de rotura del escudo
-    if (this.shieldBreakAnim > 0) {
-      const progress = 1 - this.shieldBreakAnim / SHIELD_BREAK_DURATION;
-      const pieces = 6;
-      const baseR = this.radius + 8;
-      
-      for (let i = 0; i < pieces; i++) {
-        const a = (i / pieces) * Math.PI * 2 - Math.PI / 6 + progress * Math.PI * 2;
-        const r = baseR * (1 + progress * 0.6);
-        const alpha = 0.5 * (1 - progress);
-        
-        ctx.strokeStyle = `rgba(0, 200, 255, ${alpha.toFixed(2)})`;
-        ctx.lineWidth = 2;
-        ctx.lineJoin = 'round';
-        ctx.beginPath();
-        // Fragmento de hexágono (2 lados por pieza)
-        const a1 = a;
-        const a2 = a + Math.PI / 3 * (1 - progress * 0.5);
-        ctx.moveTo(Math.cos(a1) * baseR * 0.8, Math.sin(a1) * baseR * 0.8);
-        ctx.lineTo(Math.cos(a2) * r, Math.sin(a2) * r);
-        ctx.stroke();
-        
-        // Partículas pequeñas saliendo
-        if (Math.random() < 0.3) {
-          const px = Math.cos(a) * r;
-          const py = Math.sin(a) * r;
-          ctx.fillStyle = `rgba(0, 220, 255, ${alpha.toFixed(2)})`;
-          ctx.beginPath();
-          ctx.arc(px, py, 1.5 * (1 - progress), 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-      return;
-    }
-    
-    // Escudo normal (activo)
-    const pulse = 1 + Math.sin(Date.now() / 100) * 0.08;
-    const r = (this.radius + 8) * pulse;
-    const alpha = 0.3 + 0.2 * Math.sin(Date.now() / 80);
-    
-    ctx.strokeStyle = `rgba(0, 200, 255, ${alpha.toFixed(2)})`;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    // Hexágono
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    
-    // Brillo interno
-    ctx.strokeStyle = `rgba(0, 240, 255, ${(alpha * 0.5).toFixed(2)})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-      const x = Math.cos(a) * (r * 0.7);
-      const y = Math.sin(a) * (r * 0.7);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    ctx.restore();
-  }
-}
 
 // ── Partículas (explosión) ────────────────────────────────────────────────────
 class Particle {
@@ -610,12 +422,12 @@ class PowerUp {
   constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;        // 'speed' o 'triple'
     this.baseY = y;          // posición base para flotar
     this.radius = 14;
     this.ttl = 9;            // expira si no se recoge a tiempo
     this.t = rand(0, Math.PI * 2);
     this.dead = false;
-    this.type = type;        // 'speed' o 'triple'
   }
 
   update(dt) {
