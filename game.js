@@ -136,6 +136,36 @@ const SKINS = {
       }
     }
   },
+  morada: {
+    name: 'Morada',
+    scale: 2,             // el doble de tamaño que la clásica
+    scoreMultiplier: 2,   // otorga el doble de puntos
+    draw(ctx, ship) {
+      ctx.save();
+      ctx.scale(2, 2);
+      ctx.strokeStyle = ship.powerUpTime > 0 ? '#e8ccff' : '#b06bff';
+      ctx.lineWidth   = 1.5;
+      ctx.lineJoin    = 'round';
+      ctx.beginPath();
+      ctx.moveTo( 20,  0);
+      ctx.lineTo(-12, -9);
+      ctx.lineTo( -7,  0);
+      ctx.lineTo(-12,  9);
+      ctx.closePath();
+      ctx.stroke();
+
+      if (ship.thrusting && Math.random() > 0.35) {
+        const flame = ship.powerUpTime > 0 ? 1.6 : 1;
+        ctx.beginPath();
+        ctx.moveTo(-8, -4);
+        ctx.lineTo(-8 - rand(6, 14) * flame, 0);
+        ctx.lineTo(-8,  4);
+        ctx.strokeStyle = ship.powerUpTime > 0 ? 'rgba(230, 170, 255, 0.9)' : 'rgba(190, 100, 255, 0.85)';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  },
   retro: {
     name: 'Retro',
     draw(ctx, ship) {
@@ -369,7 +399,6 @@ class Ship {
     this.angle  = -Math.PI / 2;
     this.vx     = 0;
     this.vy     = 0;
-    this.radius = 12;
     this.thrusting        = false;
     this.invincible       = 3;
     this.shootCooldown    = 0;
@@ -384,6 +413,8 @@ class Ship {
     // Cargar skin guardado o usar 'classic' por defecto
     this.skinKey = localStorage.getItem('asteroids_skin') || 'classic';
     if (!SKINS[this.skinKey]) this.skinKey = 'classic';
+    // Radio de colisión escalado por tamaño de skin
+    this.radius = 12 * (SKINS[this.skinKey].scale || 1);
   }
 
   // Activa el power up: reinicia el cronómetro, no acumula tiempo
@@ -437,7 +468,8 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    // La punta escala con el tamaño de la skin
+    const NOSE = 21 * (SKINS[this.skinKey].scale || 1);
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
 
@@ -455,8 +487,10 @@ class Ship {
   setSkin(key) {
     if (SKINS[key]) {
       this.skinKey = key;
+      this.radius = 12 * (SKINS[key].scale || 1);
       localStorage.setItem('asteroids_skin', key);
-      skinChangeMsg = `SKIN: ${SKINS[key].name}`;
+      const bonus = SKINS[key].scoreMultiplier > 1 ? ` (PUNTOS x${SKINS[key].scoreMultiplier})` : '';
+      skinChangeMsg = `SKIN: ${SKINS[key].name}${bonus}`;
       skinChangeTimer = 2;
       return true;
     }
@@ -756,6 +790,12 @@ function explode(x, y, count = 8) {
   for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
 }
 
+// Suma puntos aplicando el multiplicador de la skin activa
+function addScore(points) {
+  const skin = SKINS[ship.skinKey];
+  score += points * (skin && skin.scoreMultiplier ? skin.scoreMultiplier : 1);
+}
+
 function absorbShieldParticles(x, y) {
   // Partículas que se contraen hacia el centro (absorción)
   const count = 12;
@@ -855,7 +895,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        addScore(POINTS[a.size]);
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         // El asteroide puede soltar un power up flotante (probabilidad por tamaño)
@@ -878,7 +918,7 @@ function update(dt) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
         s.dead = true;
-        score += 500 * level;
+        addScore(500 * level);
         explode(s.x, s.y, 12);
       }
     }
@@ -919,7 +959,7 @@ function update(dt) {
     // Nave CON ESCUDO vs estrella fugaz: consume escudo y destruye estrella
     for (const s of shootingStars) {
       if (!s.dead && dist(ship, s) < ship.radius + s.radius * 0.8) {
-        score += 500 * level;
+        addScore(500 * level);
         absorbShieldParticles(ship.x, ship.y);
         
         // Consumir escudo completamente
