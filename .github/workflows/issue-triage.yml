@@ -1,0 +1,49 @@
+name: issue-triage
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Triage del issue con opencode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode-go/glm-5.1
+          prompt: |
+            Eres un bot de triage de issues. Trabaja únicamente sobre el issue que te disparó (no crees ramas, no hagas commits, no abras PRs).
+
+            1. Lee el título y la descripción del issue.
+            2. Clasifica el issue y asigna los labels correspondientes usando la taxonomía estándar:
+               - "bug" si describe un comportamiento incorrecto o algo que no funciona.
+               - "enhancement" si pide una funcionalidad nueva o mejora.
+               - "documentation" si es de documentación.
+               - "question" si es una consulta o pide aclaración.
+               - "good first issue" si es sencillo y apto para nuevos contribuidores.
+               - "help wanted" si pide ayuda externa o es ideal para un colaborador.
+               - Otros labels pertinentes de la taxonomía estándar (p. ej. "accessibility").
+               Si un label no existe en el repositorio, créalo con una descripción breve; no inventes labels fuera de la taxonomía estándar.
+            3. Mantén la descripción proporcionada por el autor. NO la modifiques ni la borres.
+            4. Si la descripción es clara y completa, no agregues nada más.
+            5. Si la descripción es ambigua, vaga o demasiado corta para entender el alcance, edita el cuerpo del issue para:
+               - Conservar el texto original dentro de una cita (bloque ">" con la sección "Descripción original").
+               - Agregar una sección "## Detalle" (en español cuando el issue esté en español) que amplíe y aclare:
+                 * Contexto y objetivo del issue.
+                 * Qué se espera exactamente.
+                 * Pasos para reproducir (si aplica) o alcance propuesto.
+                 * Resultado esperado.
+               Haz una ampliación razonable basada solo en lo que el autor escribió, sin inventar requisitos que contradigan el texto.
+            6. Al terminar, agrega un comentario breve en el issue resumiendo: labels asignados y, si aplicó, por qué se amplió la descripción.
